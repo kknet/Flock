@@ -20,12 +20,10 @@
 package org.anhonesteffort.flock.registration;
 
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.content.res.AssetManager;
-import android.preference.PreferenceManager;
 import android.util.Log;
-import android.util.Pair;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategy;
 import com.google.common.base.Optional;
@@ -35,6 +33,8 @@ import com.stripe.exception.CardException;
 import org.anhonesteffort.flock.auth.DavAccount;
 import org.anhonesteffort.flock.registration.model.AugmentedFlockAccount;
 import org.anhonesteffort.flock.registration.model.FlockCardInformation;
+import org.anhonesteffort.flock.registration.model.StripePlan;
+import org.anhonesteffort.flock.registration.model.SubscriptionPlan;
 import org.anhonesteffort.flock.util.Base64;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
@@ -54,6 +54,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.security.KeyStore;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
 /**
@@ -63,10 +64,6 @@ public class RegistrationApi {
 
   private static final String TAG = "org.anhonesteffort.flock.registration.RegistrationApi";
 
-  private static final String KEY_CACHED_DAYS_REMAINING     = "KEY_CACHED_DAYS_REMAINING";
-  private static final String KEY_CACHED_AUTO_RENEW_ENABLED = "KEY_CACHED_AUTO_RENEW_ENABLED";
-  private static final String KEY_CACHED_LAST_CHARGE_FAILED = "KEY_CACHED_LAST_CHARGE_FAILED";
-
   private       Context      context;
   private final ObjectMapper mapper;
 
@@ -75,6 +72,7 @@ public class RegistrationApi {
     this.mapper  = new ObjectMapper();
 
     mapper.setPropertyNamingStrategy(PropertyNamingStrategy.CAMEL_CASE_TO_LOWER_CASE_WITH_UNDERSCORES);
+    mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
   }
 
   private DefaultHttpClient getClient(Context context)
@@ -162,6 +160,27 @@ public class RegistrationApi {
     }
   }
 
+  private List<SubscriptionPlan> buildSubscriptionPlanList(HttpResponse response)
+      throws RegistrationApiClientException
+  {
+    List<SubscriptionPlan> planList = new LinkedList<SubscriptionPlan>();
+
+    try {
+
+      SubscriptionPlan[] plans =
+          mapper.readValue(response.getEntity().getContent(), StripePlan[].class);
+
+      for (SubscriptionPlan plan : plans)
+        planList.add(plan);
+
+      return planList;
+
+    } catch (IOException e) {
+      Log.e(TAG, "unable to build subscription plan list from HTTP response", e);
+      throw new RegistrationApiClientException("unable to build subscription plan list from HTTP response.");
+    }
+  }
+
   public Double getCostPerYearUsd()
       throws IOException, RegistrationApiException
   {
@@ -212,14 +231,9 @@ public class RegistrationApi {
     HttpResponse response = httpClient.execute(httpPost);
     throwExceptionIfNotOK(response);
 
-    AugmentedFlockAccount flockAccount = buildFlockAccount(response);
-
-    cacheSubscriptionDetails(context,
-                             flockAccount.getDaysRemaining(),
-                             flockAccount.getAutoRenewEnabled(),
-                             flockAccount.getLastStripeChargeFailed());
-    return flockAccount;
+    return buildFlockAccount(response);
   }
+
 
   public AugmentedFlockAccount getAccount(DavAccount account)
       throws RegistrationApiException, IOException
@@ -232,40 +246,41 @@ public class RegistrationApi {
     HttpResponse response = httpClient.execute(httpGet);
     throwExceptionIfNotOK(response);
 
-    AugmentedFlockAccount flockAccount = buildFlockAccount(response);
-
-    cacheSubscriptionDetails(context,
-                             flockAccount.getDaysRemaining(),
-                             flockAccount.getAutoRenewEnabled(),
-                             flockAccount.getLastStripeChargeFailed());
-    return flockAccount;
+    return buildFlockAccount(response);
   }
 
-  private static void cacheSubscriptionDetails(Context context,
-                                               Long    daysRemaining,
-                                               Boolean autoRenewEnabled,
-                                               Boolean lastChargeFailed)
+  public void setAccountVersion(DavAccount account, Integer version)
+      throws RegistrationApiException, IOException
   {
-    SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(context);
-    preferences.edit()
-        .putLong(KEY_CACHED_DAYS_REMAINING,        daysRemaining)
-        .putBoolean(KEY_CACHED_AUTO_RENEW_ENABLED, autoRenewEnabled)
-        .putBoolean(KEY_CACHED_LAST_CHARGE_FAILED, lastChargeFailed)
-        .apply();
+    Log.d(TAG, "setAccountVersion()");
+
+    List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(1);
+    nameValuePairs.add(new BasicNameValuePair(OwsRegistration.PARAM_ACCOUNT_VERSION, version.toString()));
+
+    String            HREF       = OwsRegistration.getHrefWithParameters(OwsRegistration.getHrefForAccount(account.getUserId()), nameValuePairs);
+    HttpPut           httpPut    = new HttpPut(HREF);
+    DefaultHttpClient httpClient = getClient(context);
+    authorizeRequest(httpPut, account);
+
+    HttpResponse response = httpClient.execute(httpPut);
+    throwExceptionIfNotOK(response);
   }
 
-  public static Optional<Pair<Long, Boolean[]>> getCachedSubscriptionDetails(Context context) {
-    SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(context);
-    if (preferences.getLong(KEY_CACHED_DAYS_REMAINING, -1) == -1)
-      return Optional.absent();
+  public void setAccountPassword(DavAccount account, String newPassword)
+      throws RegistrationApiException, IOException
+  {
+    Log.d(TAG, "setAccountPassword()");
 
-    return Optional.of(new Pair<Long, Boolean[]>(
-        preferences.getLong(KEY_CACHED_DAYS_REMAINING, 0),
-        new Boolean[] {
-            preferences.getBoolean(KEY_CACHED_AUTO_RENEW_ENABLED, false),
-            preferences.getBoolean(KEY_CACHED_LAST_CHARGE_FAILED, true)
-        }
-    ));
+    List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(1);
+    nameValuePairs.add(new BasicNameValuePair(OwsRegistration.PARAM_ACCOUNT_PASSWORD, newPassword));
+
+    String            HREF       = OwsRegistration.getHrefWithParameters(OwsRegistration.getHrefForAccount(account.getUserId()), nameValuePairs);
+    HttpPut           httpPut    = new HttpPut(HREF);
+    DefaultHttpClient httpClient = getClient(context);
+    authorizeRequest(httpPut, account);
+
+    HttpResponse response = httpClient.execute(httpPut);
+    throwExceptionIfNotOK(response);
   }
 
   public Optional<FlockCardInformation> getCard(DavAccount account)
@@ -289,47 +304,13 @@ public class RegistrationApi {
     return Optional.of(buildFlockCardInformation(response));
   }
 
-  public void setAccountVersion(DavAccount account, Integer version)
-      throws RegistrationApiException, IOException
-  {
-    Log.d(TAG, "setAccountVersion()");
-
-    List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(1);
-    nameValuePairs.add(new BasicNameValuePair(OwsRegistration.PARAM_ACCOUNT_VERSION, version.toString()));
-
-    String            HREF       = OwsRegistration.getHrefWithParameters(OwsRegistration.getHrefForAccount(account.getUserId()), nameValuePairs);
-    HttpPut           httpPut    = new HttpPut(HREF);
-    DefaultHttpClient httpClient = getClient(context);
-    authorizeRequest(httpPut, account);
-
-    HttpResponse response = httpClient.execute(httpPut);
-    throwExceptionIfNotOK(response);
-  }
-
-  public void setAccountPassword(DavAccount account, String newPassword)
-    throws RegistrationApiException, IOException
-  {
-    Log.d(TAG, "setAccountPassword()");
-
-    List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(1);
-    nameValuePairs.add(new BasicNameValuePair(OwsRegistration.PARAM_ACCOUNT_PASSWORD, newPassword));
-
-    String            HREF       = OwsRegistration.getHrefWithParameters(OwsRegistration.getHrefForAccount(account.getUserId()), nameValuePairs);
-    HttpPut           httpPut    = new HttpPut(HREF);
-    DefaultHttpClient httpClient = getClient(context);
-    authorizeRequest(httpPut, account);
-
-    HttpResponse response = httpClient.execute(httpPut);
-    throwExceptionIfNotOK(response);
-  }
-
   public void updateAccountStripeCard(DavAccount account, String stripeCardToken)
       throws CardException, RegistrationApiException, IOException
   {
     List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(1);
     nameValuePairs.add(new BasicNameValuePair(OwsRegistration.PARAM_STRIPE_CARD_TOKEN, stripeCardToken));
 
-    String            HREF       = OwsRegistration.getHrefWithParameters(OwsRegistration.getHrefForAccount(account.getUserId()), nameValuePairs);
+    String            HREF       = OwsRegistration.getHrefWithParameters(OwsRegistration.getHrefForCard(account.getUserId()), nameValuePairs);
     HttpPut           httpPut    = new HttpPut(HREF);
     DefaultHttpClient httpClient = getClient(context);
     authorizeRequest(httpPut, account);
@@ -346,39 +327,37 @@ public class RegistrationApi {
       else
         throw e;
     }
-
-    Optional<Pair<Long, Boolean[]>> subscriptionDetails = getCachedSubscriptionDetails(context);
-    if (!subscriptionDetails.isPresent())
-      return;
-
-    cacheSubscriptionDetails(context,
-                             subscriptionDetails.get().first,
-                             subscriptionDetails.get().second[0],
-                             false);
   }
 
-  public void setAccountAutoRenew(DavAccount account, Boolean autoRenewEnabled)
+  public List<SubscriptionPlan> getSubscriptionPlans(DavAccount account)
       throws RegistrationApiException, IOException
   {
-    List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(1);
-    nameValuePairs.add(new BasicNameValuePair(OwsRegistration.PARAM_AUTO_RENEW, autoRenewEnabled.toString()));
-
-    String            HREF       = OwsRegistration.getHrefWithParameters(OwsRegistration.getHrefForAccount(account.getUserId()), nameValuePairs);
-    HttpPut           httpPut    = new HttpPut(HREF);
+    String            HREF       = OwsRegistration.getHrefForSubscriptionPlans(account.getUserId());
+    HttpGet           httpGet    = new HttpGet(HREF);
     DefaultHttpClient httpClient = getClient(context);
-    authorizeRequest(httpPut, account);
+    authorizeRequest(httpGet, account);
 
-    HttpResponse response = httpClient.execute(httpPut);
+    HttpResponse response = httpClient.execute(httpGet);
+
     throwExceptionIfNotOK(response);
+    return buildSubscriptionPlanList(response);
+  }
 
-    Optional<Pair<Long, Boolean[]>> subscriptionDetails = getCachedSubscriptionDetails(context);
-    if (!subscriptionDetails.isPresent())
-      return;
+  public void cancelSubscription(DavAccount account, String subscriptionType)
+      throws RegistrationApiException, IOException
+  {
+    Log.d(TAG, "cancelSubscription() type: " + subscriptionType);
 
-    cacheSubscriptionDetails(context,
-                             subscriptionDetails.get().first,
-                             autoRenewEnabled,
-                             subscriptionDetails.get().second[1]);
+    List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(1);
+    nameValuePairs.add(new BasicNameValuePair("type", subscriptionType));
+
+    String            HREF       = OwsRegistration.getHrefWithParameters(OwsRegistration.getHrefForSubscriptionPlans(account.getUserId()), nameValuePairs);
+    HttpDelete        httpDelete = new HttpDelete(HREF);
+    DefaultHttpClient httpClient = getClient(context);
+    authorizeRequest(httpDelete, account);
+
+    HttpResponse response = httpClient.execute(httpDelete);
+    throwExceptionIfNotOK(response);
   }
 
   public void deleteAccount(DavAccount account)
@@ -392,7 +371,5 @@ public class RegistrationApi {
 
     HttpResponse response = httpClient.execute(httpDelete);
     throwExceptionIfNotOK(response);
-
-    cacheSubscriptionDetails(context, 0L, false, true);
   }
 }

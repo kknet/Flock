@@ -39,6 +39,7 @@ import org.anhonesteffort.flock.auth.DavAccount;
 import org.anhonesteffort.flock.sync.addressbook.AddressbookSyncScheduler;
 import org.anhonesteffort.flock.sync.calendar.CalendarsSyncScheduler;
 import org.anhonesteffort.flock.sync.key.KeySyncScheduler;
+import org.anhonesteffort.flock.sync.subscription.SubscriptionSyncScheduler;
 import org.anhonesteffort.flock.util.ColorUtils;
 
 /**
@@ -149,6 +150,7 @@ public class PreferencesActivity extends PreferenceActivity
         new KeySyncScheduler(getBaseContext()).requestSync();
         new CalendarsSyncScheduler(getBaseContext()).requestSync();
         new AddressbookSyncScheduler(getBaseContext()).requestSync();
+        new SubscriptionSyncScheduler(getBaseContext()).requestSync();
 
         Toast.makeText(getBaseContext(),
                        R.string.sync_requested_will_begin_when_possible,

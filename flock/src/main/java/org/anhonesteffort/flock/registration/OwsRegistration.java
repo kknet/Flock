@@ -46,12 +46,16 @@ public class OwsRegistration {
   protected static final String ACCOUNT_COLLECTION      = "accounts";
   protected static final String ACCOUNT_CARD_CONTROLLER = "card";
   protected static final String PRICING_CONTROLLER      = "pricing";
+  protected static final String PLAN_COLLECTION         = "subscription-plans";
 
   protected static final String PARAM_ACCOUNT_ID        = "id";
   protected static final String PARAM_ACCOUNT_VERSION   = "version";
   protected static final String PARAM_ACCOUNT_PASSWORD  = "password";
   protected static final String PARAM_STRIPE_CARD_TOKEN = "stripe_card_token";
   protected static final String PARAM_AUTO_RENEW        = "auto_renew";
+
+  public static final String SUBSCRIPTION_TYPE_STRIPE      = "sub_stripe";
+  public static final String SUBSCRIPTION_TYPE_GOOGLE_PLAY = "sub_google_play";
 
   protected static final String REGISTRATION_API_HOST   = "flock-accounts.whispersystems.org";
   protected static final int    REGISTRATION_API_PORT   = 443;
@@ -67,6 +71,10 @@ public class OwsRegistration {
 
   protected static String getHrefForCard(String accountId) {
     return HREF_ACCOUNT_COLLECTION + accountId + "/" + ACCOUNT_CARD_CONTROLLER;
+  }
+
+  protected static String getHrefForSubscriptionPlans(String accountId) {
+    return HREF_ACCOUNT_COLLECTION + accountId + "/" + PLAN_COLLECTION;
   }
 
   protected static String getHrefWithParameters(String href, List<NameValuePair> params) {

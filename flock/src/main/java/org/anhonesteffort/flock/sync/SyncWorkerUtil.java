@@ -49,6 +49,7 @@ public class SyncWorkerUtil {
 
   protected static final int MAX_COMPONENTS_PER_REPORT = 50;
 
+  // TODO: need to handle RegistrationApiExceptions
   public static void handleException(Context context, Exception e, SyncResult result) {
     if (e instanceof DavException) {
       DavException ex = (DavException) e;
