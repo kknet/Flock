@@ -18,10 +18,14 @@
 package org.anhonesteffort.flock.sync.subscription;
 
 import android.app.Service;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.os.IBinder;
 import android.os.RemoteException;
+
+import com.android.vending.billing.IInAppBillingService;
 
 import org.anhonesteffort.flock.crypto.InvalidMacException;
 import org.anhonesteffort.flock.sync.AbstractSyncAdapter;
@@ -39,14 +43,20 @@ import java.util.List;
  */
 public class SubscriptionSyncService extends Service {
 
-  private static       SubscriptionSyncAdapter sSyncAdapter     = null;
-  private static final Object                  sSyncAdapterLock = new Object();
+  protected static       IInAppBillingService    billingService   = null;
+  private   static       SubscriptionSyncAdapter sSyncAdapter     = null;
+  private   static final Object                  sSyncAdapterLock = new Object();
 
   @Override
   public void onCreate() {
     synchronized (sSyncAdapterLock) {
-      if (sSyncAdapter == null)
+      if (sSyncAdapter == null) {
         sSyncAdapter = new SubscriptionSyncAdapter(getApplicationContext());
+
+        Intent serviceIntent = new Intent("com.android.vending.billing.InAppBillingService.BIND");
+        serviceIntent.setPackage("com.android.vending");
+        bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE);
+      }
     }
   }
 
@@ -68,7 +78,6 @@ public class SubscriptionSyncService extends Service {
 
     @Override
     protected boolean localHasChanged() throws RemoteException {
-      // TODO: if new google play sub then local has changed.
       return false;
     }
 
@@ -85,7 +94,7 @@ public class SubscriptionSyncService extends Service {
         throws DavException, RemoteException, IOException
     {
       List<SyncWorker> workers = new LinkedList<SyncWorker>();
-      workers.add(new SubscriptionSyncWorker(getContext(), davAccount, syncResult));
+      workers.add(new SubscriptionSyncWorker(getContext(), davAccount, billingService, syncResult));
 
       return workers;
     }
@@ -98,4 +107,26 @@ public class SubscriptionSyncService extends Service {
 
     }
   }
+
+  @Override
+  public void onDestroy() {
+    super.onDestroy();
+
+    if (serviceConnection != null)
+      unbindService(serviceConnection);
+  }
+
+  private ServiceConnection serviceConnection = new ServiceConnection() {
+
+    @Override
+    public void onServiceDisconnected(ComponentName name) {
+      billingService = null;
+    }
+
+    @Override
+    public void onServiceConnected(ComponentName name, IBinder service) {
+      billingService = IInAppBillingService.Stub.asInterface(service);
+    }
+
+  };
 }

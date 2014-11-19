@@ -39,10 +39,10 @@ public class SubscriptionStore {
   public static final int PLAN_TYPE_GOOGLE = 1;
   public static final int PLAN_TYPE_STRIPE = 2;
 
-  private static final String KEY_LAST_CHARGE_FAILED          = "SubscriptionStore.KEY_LAST_CHARGE_FAILED";
+  private static final String KEY_ACTIVE_SUBSCRIPTION_PLAN    = "SubscriptionStore.KEY_ACTIVE_SUBSCRIPTION_PLAN";
   private static final String KEY_DAYS_REMAINING_TIMESTAMP    = "SubscriptionStore.KEY_DAYS_REMAINING_TIMESTAMP";
   private static final String KEY_DAYS_REMAINING              = "SubscriptionStore.KEY_DAYS_REMAINING";
-  private static final String KEY_ACTIVE_SUBSCRIPTION_PLAN    = "SubscriptionStore.KEY_ACTIVE_SUBSCRIPTION_PLAN";
+  private static final String KEY_LAST_CHARGE_FAILED          = "SubscriptionStore.KEY_LAST_CHARGE_FAILED";
   private static final String KEY_CARD_INFORMATION_ACCOUNT_ID = "SubscriptionStore.KEY_CARD_INFORMATION_ACCOUNT_ID";
   private static final String KEY_CARD_INFORMATION_LAST_FOUR  = "SubscriptionStore.KEY_CARD_INFORMATION_LAST_FOUR";
   private static final String KEY_CARD_INFORMATION_EXPIRATION = "SubscriptionStore.KEY_CARD_INFORMATION_EXPIRATION";
@@ -51,13 +51,24 @@ public class SubscriptionStore {
     return PreferenceManager.getDefaultSharedPreferences(context);
   }
 
-  public static boolean getLastChargeFailed(Context context) {
-    return getStore(context).getBoolean(KEY_LAST_CHARGE_FAILED, false);
+  public static int getSubscriptionPlanType(SubscriptionPlan plan) {
+    int planType = PLAN_TYPE_NONE;
+
+    if (plan instanceof GooglePlan)
+      planType = PLAN_TYPE_GOOGLE;
+    else if (plan instanceof StripePlan)
+      planType = PLAN_TYPE_STRIPE;
+
+    return planType;
   }
 
-  public static void setLastChargeFailed(Context context, boolean failed) {
+  public static int getActiveSubscriptionPlanType(Context context) {
+    return getStore(context).getInt(KEY_ACTIVE_SUBSCRIPTION_PLAN, PLAN_TYPE_NONE);
+  }
+
+  public static void setActiveSubscriptionPlanType(Context context, int planType) {
     getStore(context).edit()
-        .putBoolean(KEY_LAST_CHARGE_FAILED, failed)
+        .putInt(KEY_ACTIVE_SUBSCRIPTION_PLAN, planType)
         .apply();
   }
 
@@ -77,6 +88,16 @@ public class SubscriptionStore {
     getStore(context).edit()
         .putLong(KEY_DAYS_REMAINING,           daysRemaining)
         .putLong(KEY_DAYS_REMAINING_TIMESTAMP, new Date().getTime())
+        .apply();
+  }
+
+  public static boolean getLastChargeFailed(Context context) {
+    return getStore(context).getBoolean(KEY_LAST_CHARGE_FAILED, false);
+  }
+
+  public static void setLastChargeFailed(Context context, boolean failed) {
+    getStore(context).edit()
+        .putBoolean(KEY_LAST_CHARGE_FAILED, failed)
         .apply();
   }
 
@@ -110,27 +131,6 @@ public class SubscriptionStore {
           .putString(KEY_CARD_INFORMATION_EXPIRATION, null)
           .apply();
     }
-  }
-
-  public static int getSubscriptionPlanType(SubscriptionPlan plan) {
-    int planType = PLAN_TYPE_NONE;
-
-    if (plan instanceof GooglePlan)
-      planType = PLAN_TYPE_GOOGLE;
-    else if (plan instanceof StripePlan)
-      planType = PLAN_TYPE_STRIPE;
-
-    return planType;
-  }
-
-  public static int getActiveSubscriptionPlanType(Context context) {
-    return getStore(context).getInt(KEY_ACTIVE_SUBSCRIPTION_PLAN, PLAN_TYPE_NONE);
-  }
-
-  public static void setActiveSubscriptionPlanType(Context context, int planType) {
-    getStore(context).edit()
-        .putInt(KEY_ACTIVE_SUBSCRIPTION_PLAN, planType)
-        .apply();
   }
 
 }

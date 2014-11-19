@@ -19,15 +19,23 @@
 
 package org.anhonesteffort.flock;
 
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentTransaction;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.Window;
+
+import com.android.vending.billing.IInAppBillingService;
+import com.google.common.base.Optional;
 
 import org.anhonesteffort.flock.auth.DavAccount;
 import org.anhonesteffort.flock.sync.subscription.SubscriptionStore;
@@ -37,12 +45,22 @@ import org.anhonesteffort.flock.sync.subscription.SubscriptionStore;
  */
 public class ManageSubscriptionActivity extends FragmentActivity {
 
+  private static final String TAG = "org.anhonesteffort.flock.ManageSubscriptionActivity";
+
   public static final String KEY_DAV_ACCOUNT_BUNDLE = "KEY_DAV_ACCOUNT_BUNDLE";
   public static final String KEY_CURRENT_FRAGMENT   = "KEY_CURRENT_FRAGMENT";
+  public static final String KEY_REQUEST_CODE       = "KEY_REQUEST_CODE";
+  public static final String KEY_RESULT_CODE        = "KEY_RESULT_CODE";
+  public static final String KEY_RESULT_DATA        = "KEY_RESULT_DATA";
 
-  protected DavAccount davAccount;
-  protected Menu       optionsMenu;
-  private   int        currentFragment = -1;
+  protected IInAppBillingService billingService;
+  protected DavAccount           davAccount;
+  protected Menu                 optionsMenu;
+
+  private   int               currentFragment     = -1;
+  protected Optional<Integer> activityRequestCode = Optional.absent();
+  protected Optional<Integer> activityResultCode  = Optional.absent();
+  protected Optional<Intent>  activityResultData  = Optional.absent();
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -57,22 +75,34 @@ public class ManageSubscriptionActivity extends FragmentActivity {
 
     if (savedInstanceState != null && !savedInstanceState.isEmpty()) {
       if (!DavAccount.build(savedInstanceState.getBundle(KEY_DAV_ACCOUNT_BUNDLE)).isPresent()) {
+        Log.e(TAG, "where did my dav account bundle go?! :(");
         finish();
         return;
       }
 
-      davAccount      = DavAccount.build(savedInstanceState.getBundle(KEY_DAV_ACCOUNT_BUNDLE)).get();
-      currentFragment = savedInstanceState.getInt(KEY_CURRENT_FRAGMENT, -1);
+      davAccount          = DavAccount.build(savedInstanceState.getBundle(KEY_DAV_ACCOUNT_BUNDLE)).get();
+      currentFragment     = savedInstanceState.getInt(KEY_CURRENT_FRAGMENT, -1);
+      activityRequestCode = Optional.fromNullable(savedInstanceState.getInt(KEY_REQUEST_CODE));
+      activityResultCode  = Optional.fromNullable(savedInstanceState.getInt(KEY_RESULT_CODE));
+      activityResultData  = Optional.fromNullable((Intent) savedInstanceState.getParcelable(KEY_RESULT_DATA));
     }
     else if (getIntent().getExtras() != null) {
       if (!DavAccount.build(getIntent().getExtras().getBundle(KEY_DAV_ACCOUNT_BUNDLE)).isPresent()) {
+        Log.e(TAG, "where did my dav account bundle go?! :(");
         finish();
         return;
       }
 
-      davAccount      = DavAccount.build(getIntent().getExtras().getBundle(KEY_DAV_ACCOUNT_BUNDLE)).get();
-      currentFragment = getIntent().getExtras().getInt(KEY_CURRENT_FRAGMENT, -1);
+      davAccount          = DavAccount.build(getIntent().getExtras().getBundle(KEY_DAV_ACCOUNT_BUNDLE)).get();
+      currentFragment     = getIntent().getExtras().getInt(KEY_CURRENT_FRAGMENT, -1);
+      activityRequestCode = Optional.fromNullable(getIntent().getExtras().getInt(KEY_REQUEST_CODE));
+      activityResultCode  = Optional.fromNullable(getIntent().getExtras().getInt(KEY_RESULT_CODE));
+      activityResultData  = Optional.fromNullable((Intent) getIntent().getExtras().getParcelable(KEY_RESULT_DATA));
     }
+
+    Intent serviceIntent = new Intent("com.android.vending.billing.InAppBillingService.BIND");
+    serviceIntent.setPackage("com.android.vending");
+    bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE);
   }
 
   @Override
@@ -108,7 +138,16 @@ public class ManageSubscriptionActivity extends FragmentActivity {
   @Override
   public void onSaveInstanceState(Bundle savedInstanceState) {
     savedInstanceState.putBundle(KEY_DAV_ACCOUNT_BUNDLE, davAccount.toBundle());
-    savedInstanceState.putInt(KEY_CURRENT_FRAGMENT,      currentFragment);
+    savedInstanceState.putInt(KEY_CURRENT_FRAGMENT, currentFragment);
+
+    if (activityRequestCode.isPresent())
+      savedInstanceState.putInt(KEY_REQUEST_CODE, activityRequestCode.get());
+
+    if (activityResultCode.isPresent())
+      savedInstanceState.putInt(KEY_RESULT_CODE, activityResultCode.get());
+
+    if (activityResultData.isPresent())
+      savedInstanceState.putParcelable(KEY_RESULT_DATA, activityResultData.get());
 
     super.onSaveInstanceState(savedInstanceState);
   }
@@ -117,12 +156,16 @@ public class ManageSubscriptionActivity extends FragmentActivity {
   public void onRestoreInstanceState(Bundle savedInstanceState) {
     if (savedInstanceState != null && !savedInstanceState.isEmpty()) {
       if (!DavAccount.build(savedInstanceState.getBundle(KEY_DAV_ACCOUNT_BUNDLE)).isPresent()) {
+        Log.e(TAG, "where did my dav account bundle go?! :(");
         finish();
         return;
       }
 
-      davAccount      = DavAccount.build(savedInstanceState.getBundle(KEY_DAV_ACCOUNT_BUNDLE)).get();
-      currentFragment = savedInstanceState.getInt(KEY_CURRENT_FRAGMENT, -1);
+      davAccount          = DavAccount.build(savedInstanceState.getBundle(KEY_DAV_ACCOUNT_BUNDLE)).get();
+      currentFragment     = savedInstanceState.getInt(KEY_CURRENT_FRAGMENT, -1);
+      activityRequestCode = Optional.fromNullable(savedInstanceState.getInt(KEY_REQUEST_CODE));
+      activityResultCode  = Optional.fromNullable(savedInstanceState.getInt(KEY_RESULT_CODE));
+      activityResultData  = Optional.fromNullable((Intent) savedInstanceState.getParcelable(KEY_RESULT_DATA));
     }
 
     super.onRestoreInstanceState(savedInstanceState);
@@ -189,4 +232,41 @@ public class ManageSubscriptionActivity extends FragmentActivity {
     }
   }
 
+  @Override
+  public void onActivityResult(int requestCode, int resultCode, Intent data) {
+    super.onActivityResult(requestCode, resultCode, data);
+    Log.d(TAG, "ON ACTIVITY RESULT");
+
+    activityRequestCode = Optional.of(requestCode);
+    activityResultCode  = Optional.of(resultCode);
+    activityResultData  = Optional.of(data);
+  }
+
+  protected void handleClearActivityResult() {
+    activityRequestCode = Optional.absent();
+    activityResultCode  = Optional.absent();
+    activityResultData  = Optional.absent();
+  }
+
+  @Override
+  public void onDestroy() {
+    super.onDestroy();
+
+    if (serviceConnection != null)
+      unbindService(serviceConnection);
+  }
+
+  private ServiceConnection serviceConnection = new ServiceConnection() {
+
+    @Override
+    public void onServiceDisconnected(ComponentName name) {
+      billingService = null;
+    }
+
+    @Override
+    public void onServiceConnected(ComponentName name, IBinder service) {
+      billingService = IInAppBillingService.Stub.asInterface(service);
+    }
+
+  };
 }

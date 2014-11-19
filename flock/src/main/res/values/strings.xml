@@ -249,6 +249,9 @@
     <string name="start_subscription">Start subscription</string>
     <string name="cancel_subscription">Cancel subscription</string>
     <string name="are_you_sure_you_want_to_cancel_your_flock_subscription">Are you sure you want to cancel your Flock subscription?</string>
+    <string name="your_subscription_is_active_well_charge_you_again_in_days">Your subscription is active, we'll charge you again in %1$d days.</string>
+    <string name="google_play_error_please_update_google_play_services">Google Play error, please update Google Play Services.</string>
+    <string name="purchase_failed_check_your_google_wallet">purchase failed, check your Google Wallet</string>
 
 
     <!-- EditAutoRenewActivity -->

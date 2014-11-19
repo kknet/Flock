@@ -57,13 +57,14 @@ public class OwsRegistration {
   public static final String SUBSCRIPTION_TYPE_STRIPE      = "sub_stripe";
   public static final String SUBSCRIPTION_TYPE_GOOGLE_PLAY = "sub_google_play";
 
-  protected static final String REGISTRATION_API_HOST   = "flock-accounts.whispersystems.org";
-  protected static final int    REGISTRATION_API_PORT   = 443;
-  protected static final String HREF_REGISTRATION_API   = "https://" + REGISTRATION_API_HOST + ":" + REGISTRATION_API_PORT;
+  protected static final String REGISTRATION_API_HOST   = "54.245.21.152";
+  protected static final int    REGISTRATION_API_PORT   = 8080;
+  protected static final String HREF_REGISTRATION_API   = "http://" + REGISTRATION_API_HOST + ":" + REGISTRATION_API_PORT;
   protected static final String HREF_ACCOUNT_COLLECTION = HREF_REGISTRATION_API + "/" + ACCOUNT_COLLECTION + "/";
   protected static final String HREF_PRICING            = HREF_REGISTRATION_API + "/" + PRICING_CONTROLLER + "/";
 
-  public static final String STRIPE_PUBLIC_KEY = "pk_live_EiIuIaXaPPMgjllTlweiDYgJ";
+  //public static final String STRIPE_PUBLIC_KEY = "pk_live_EiIuIaXaPPMgjllTlweiDYgJ";
+  public static final String STRIPE_PUBLIC_KEY = "pk_test_AdMGcDYIVv3RwSxdRNsb6B7S";
 
   protected static String getHrefForAccount(String accountId) {
     return HREF_ACCOUNT_COLLECTION + accountId;

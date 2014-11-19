@@ -92,6 +92,8 @@ public class ErrorToaster {
 
   protected static final int CODE_ACCOUNT_MANAGER_ERROR = 26;
 
+  protected static final int CODE_GOOGLE_PLAY_ERROR = 27;
+
   protected static void handleBundleError(Exception e, Bundle bundle) {
     Log.e(TAG, "handleBundleError() - ", e);
 
@@ -266,6 +268,10 @@ public class ErrorToaster {
         handleShowAccountManagerError(context);
         break;
 
+      case CODE_GOOGLE_PLAY_ERROR:
+        handleShowGooglePlayError(context);
+        break;
+
     }
   }
 
@@ -376,6 +382,10 @@ public class ErrorToaster {
 
   private static void handleShowAccountManagerError(Context context) {
     handleShowError(context, R.string.error_android_account_manager_error);
+  }
+
+  private static void handleShowGooglePlayError(Context context) {
+    handleShowError(context, R.string.google_play_error_please_update_google_play_services);
   }
 
 }

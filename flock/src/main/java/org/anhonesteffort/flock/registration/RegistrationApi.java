@@ -160,6 +160,7 @@ public class RegistrationApi {
     }
   }
 
+  // TODO: support both google and stripe plans
   private List<SubscriptionPlan> buildSubscriptionPlanList(HttpResponse response)
       throws RegistrationApiClientException
   {
@@ -321,7 +322,7 @@ public class RegistrationApi {
 
       throwExceptionIfNotOK(response);
 
-    } catch (RegistrationApiClientException e) {
+    } catch (RegistrationApiException e) {
       if (e.getStatus() == OwsRegistration.STATUS_PAYMENT_REQUIRED)
         throw new CardException("server rejected card", "hack", "hack", null);
       else

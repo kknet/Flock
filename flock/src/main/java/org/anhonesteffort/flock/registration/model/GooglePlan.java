@@ -52,6 +52,14 @@ public class GooglePlan extends SubscriptionPlan {
     return this.status.equals(STATUS_PURCHASED);
   }
 
+  public String getProductKind() {
+    return productKind;
+  }
+
+  public String getPurchaseToken() {
+    return purchaseToken;
+  }
+
   @Override
   public boolean equals(Object other) {
     if (other == null)                  return false;

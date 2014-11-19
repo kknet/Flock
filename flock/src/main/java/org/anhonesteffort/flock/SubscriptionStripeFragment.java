@@ -45,6 +45,7 @@ import org.anhonesteffort.flock.registration.RegistrationApi;
 import org.anhonesteffort.flock.registration.RegistrationApiException;
 import org.anhonesteffort.flock.registration.model.FlockCardInformation;
 import org.anhonesteffort.flock.sync.subscription.SubscriptionStore;
+import org.anhonesteffort.flock.sync.subscription.SubscriptionSyncScheduler;
 import org.apache.commons.lang.StringUtils;
 
 import java.io.IOException;
@@ -59,7 +60,7 @@ public class SubscriptionStripeFragment extends Fragment {
 
   private ManageSubscriptionActivity subscriptionActivity;
   private AsyncTask                  asyncTask;
-  protected AlertDialog              alertDialog;
+  private AlertDialog                alertDialog;
 
   private Optional<FlockCardInformation> cardInformation;
 
@@ -474,7 +475,8 @@ public class SubscriptionStripeFragment extends Fragment {
                                              OwsRegistration.SUBSCRIPTION_TYPE_STRIPE);
 
           SubscriptionStore.setLastChargeFailed(subscriptionActivity, false);
-          SubscriptionStore.setActiveSubscriptionPlanType(subscriptionActivity, SubscriptionStore.PLAN_TYPE_NONE);
+          SubscriptionStore.setActiveSubscriptionPlanType(subscriptionActivity,
+                                                          SubscriptionStore.PLAN_TYPE_NONE);
 
           result.putInt(ErrorToaster.KEY_STATUS_CODE, ErrorToaster.CODE_SUCCESS);
 
@@ -494,6 +496,7 @@ public class SubscriptionStripeFragment extends Fragment {
         subscriptionActivity.setProgressBarVisibility(false);
 
         if (result.getInt(ErrorToaster.KEY_STATUS_CODE) == ErrorToaster.CODE_SUCCESS) {
+          new SubscriptionSyncScheduler(subscriptionActivity).requestSync();
           Toast.makeText(subscriptionActivity, R.string.subscription_canceled, Toast.LENGTH_SHORT).show();
           subscriptionActivity.updateFragmentWithPlanType(SubscriptionStore.PLAN_TYPE_NONE);
         }

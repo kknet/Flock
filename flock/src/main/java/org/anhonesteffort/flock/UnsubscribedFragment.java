@@ -172,9 +172,9 @@ public class UnsubscribedFragment extends Fragment {
       protected Bundle doInBackground(String... params) {
         Bundle result = new Bundle();
 
-        // TODO: check sync result?
         new SubscriptionSyncWorker(subscriptionActivity,
                                    subscriptionActivity.davAccount,
+                                   null,
                                    new SyncResult()).run();
 
         result.putInt(ErrorToaster.KEY_STATUS_CODE, ErrorToaster.CODE_SUCCESS);

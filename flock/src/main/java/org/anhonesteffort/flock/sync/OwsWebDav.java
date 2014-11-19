@@ -26,9 +26,10 @@ import org.apache.jackrabbit.webdav.xml.Namespace;
  */
 public class OwsWebDav {
 
-  public static final String WEBDAV_HOST      = "flock-sync.whispersystems.org";
-  public static final int    WEBDAV_PORT      = 443;
-  public static final String HREF_WEBDAV_HOST = "https://" + WEBDAV_HOST + ":" + WEBDAV_PORT;
+  // TODO
+  public static final String WEBDAV_HOST      = "54.71.83.93";
+  public static final int    WEBDAV_PORT      = 80;
+  public static final String HREF_WEBDAV_HOST = "http://" + WEBDAV_HOST + ":" + WEBDAV_PORT;
 
   public static final int STATUS_PAYMENT_REQUIRED = 402;
 
